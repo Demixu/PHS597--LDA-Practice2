@@ -1,0 +1,47 @@
+---
+title: "LDA-QDA-practice"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(MASS)
+library(tidyverse)
+```
+
+## standard LDA and QDA method
+```{r}
+##Simulate dataset
+Sigma.matrix <- diag(c(1,1),2,2)
+Sigma.matrix[1,2]=0.5
+Sigma.matrix[2,1]=0.5#X1 and x2 are correlated 
+X1 =MASS::mvrnorm(n=20, c(2,2), Sigma.matrix)%>%as.data.frame()
+X2 =MASS::mvrnorm(n=20, c(4,5), Sigma.matrix)%>%as.data.frame()
+X3 =MASS::mvrnorm(n=20, c(-1,-1), Sigma.matrix)%>%as.data.frame()
+X = rbind(X1,X2,X3)
+Y = c(rep(1,20),rep(2,20),rep(3,20))
+data_mat=cbind(X,Y)%>%as.data.frame()%>%mutate(Y=as.character(Y))
+
+lda = function(X,Y){
+  class = unique(Y)
+  A = list()
+  k = length(class)
+  sigma = matrix(0,ncol(X),ncol(X))
+  for(i in 1:k){
+    index = which(data_mat$Y==class[i])
+    X1 = X[index,]
+    mu = colSums(X1)/nrow(X1)
+    c= X1 - mu
+    c=as.matrix(c)
+    sigma = sigma+t(c) %*% c/(nrow(X)-k)
+    A[[i]]=mu
+    }
+}
+```
+
+
+##First sphering and then put data back
+```{r}
+
+```
+
