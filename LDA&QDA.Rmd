@@ -9,7 +9,7 @@ library(MASS)
 library(tidyverse)
 ```
 
-## standard LDA and QDA method
+## Method1: standard LDA and QDA method
 ```{r}
 ##Simulate dataset
 Sigma.matrix <- diag(c(1,1),2,2)
@@ -22,26 +22,59 @@ X = rbind(X1,X2,X3)
 Y = c(rep(1,20),rep(2,20),rep(3,20))
 data_mat=cbind(X,Y)%>%as.data.frame()%>%mutate(Y=as.character(Y))
 
-lda = function(X,Y){
+##get important statistics for lda classification
+lda_stat = function(X,Y,LDA=TRUE){
   class = unique(Y)
   A = list()
   k = length(class)
   sigma = matrix(0,ncol(X),ncol(X))
+  pi = matrix(0,3,1)
+  qda_sigma = list()
+  X = X
+  #if (method!="QDA"&&method!="LDA"){
+  #  print("warning!please change method")
+  #  break
+  #}
   for(i in 1:k){
     index = which(data_mat$Y==class[i])
     X1 = X[index,]
     mu = colSums(X1)/nrow(X1)
+    pi[i,] = nrow(X1)/nrow(X)
     c= X1 - mu
     c=as.matrix(c)
+    if(LDA){
     sigma = sigma+t(c) %*% c/(nrow(X)-k)
-    A[[i]]=mu
     }
+    else{
+    qda_sigma[[i]]=t(c) %*% c/(nrow(X1)-1)
+    print("Q")
+    }
+    A[[i]]=mu
+  }
+  if(LDA){
+    output=list(pi = pi,mu=A,sigma_mat=sigma)
+  }
+  else{
+    output=list(pi =pi,mu=A,sigma)
+  }
+  output
+}
+
+##conduct LDA and QDA classificationn
+lda(X,Y,LDA=TRUE){
+  class = unique(Y)
+  
 }
 ```
 
 
-##First sphering and then put data back
+
+
+## Method2: First sphering and then put data back
 ```{r}
+##First sphering
+
+##dins 
 
 ```
 
