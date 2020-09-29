@@ -1,14 +1,20 @@
 ---
-title: "LDA-QDA-practice"
-output: html_document
+title: "LDA&QDA"
+author: "Jingyu Xu"
+date: "09/26/2020"
+output:
+  html_document:
+    code_folding: hide
+    toc: yes
+editor_options: 
+  chunk_output_type: console
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(MASS)
-library(tidyverse)
-```
 
+```{r setup, include=FALSE}
+library(tidyverse)
+library(MASS)
+```
 ## Method1: standard LDA and QDA method
 ```{r}
 ##Simulate dataset
@@ -55,26 +61,160 @@ lda_stat = function(X,Y,LDA=TRUE){
     output=list(pi = pi,mu=A,sigma_mat=sigma)
   }
   else{
-    output=list(pi =pi,mu=A,sigma)
+    output=list(pi =pi,mu=A,sigma_mat=qda_sigma)
   }
   output
 }
 
-##conduct LDA and QDA classificationn
-lda(X,Y,LDA=TRUE){
-  class = unique(Y)
-  
-}
+
 ```
 
+
+##visulization of LDA boundary
+```{r}
+##notice in our simulated dataset, the pi for each calss is equal
+sigma = lda_stat(X,Y,LDA=TRUE)$sigma_mat
+mu1 = lda_stat(X,Y,LDA=TRUE)$mu[[1]]
+mu2 = lda_stat(X,Y,LDA=TRUE)$mu[[2]]
+mu3 = lda_stat(X,Y,LDA=TRUE)$mu[[3]]
+##get original intercept and slope
+b12=solve(sigma)%*%(mu2-mu1)
+a12=-1/2*(mu1+mu2)%*%solve(sigma)%*%(mu2-mu1)
+slope_12=-b12[1]/b12[2]
+inter_12 = -a12/b12[2]
+b23=solve(sigma)%*%(mu3-mu2)
+a23=-1/2*(mu2+mu3)%*%solve(sigma)%*%(mu3-mu2)
+slope_23=-b23[1]/b23[2]
+inter_23 = -a23/b23[2]
+b13=solve(sigma)%*%(mu3-mu1)
+a13=-1/2*(mu1+mu3)%*%solve(sigma)%*%(mu3-mu1)
+slope_13=-b13[1]/b13[2]
+inter_13 = -a13/b13[2]
+
+X_mat=X%>%as.data.frame()
+colnames(X_mat)=c("x1","x2")
+X_mat=cbind(X_mat,class=c(rep("class1",20),rep("class2",20),rep("class3",20)))%>%as.data.frame()
+original=ggplot(X_mat, aes(x=x1, y=x2)) + geom_point(aes(color=class)) + geom_abline(
+  slope=slope_12,
+  intercept=inter_12,
+  color = "red"
+) + geom_abline(
+  slope=slope_13,
+  intercept=inter_13,
+  color = "red"
+)+ geom_abline(
+  slope=slope_23,
+  intercept=inter_23,
+  color = "red"
+)
+original
+```
 
 
 
 ## Method2: First sphering and then put data back
 ```{r}
 ##First sphering
+##get the eigenvalue decomposition
+D = eigen(sigma)$values
+U = eigen(sigma)$vectors
+##transformation of X
+trans_mat=diag(D^(-1/2))%*%t(U)
+X_trans = t(trans_mat%*%t((as.matrix(X))))
+back_mat=solve(trans_mat)
+##calculate the slope and intercept based on the tree centers
+mu_trans = lda_stat(X_trans,Y,LDA=TRUE)$mu
+mu1=mu_trans[[1]]
+mu2=mu_trans[[2]]
+mu3=mu_trans[[3]]
+med12 = (mu1+mu2)/2
+med23 = (mu2+mu3)/2
+med13 = (mu1+mu3)/2
+trans_slope_12=-1/((mu1-mu2)[2]/(mu1-mu2)[1])
+trans_inter_12=-trans_slope_12*med12[1]+med12[2]
+trans_slope_23=-1/((mu2-mu3)[2]/(mu2-mu3)[1])
+trans_inter_23=-trans_slope_23*med23[1]+med23[2]
+trans_slope_13=-1/((mu1-mu3)[2]/(mu1-mu3)[1])
+trans_inter_13=-trans_slope_13*med13[1]+med13[2]
 
-##dins 
+##calculate the slope and intercept when transforming back
+##In this part, we can first transfer the intercept and medium point back and then recalculate the new intercept and slope
+p12 = c(0,trans_inter_12)
+p12_b = back_mat%*%p12
+med12_b=back_mat%*%med12
+back_slope_12=(med12_b-p12_b)[2]/(med12_b-p12_b)[1]
+back_inter_12=-back_slope_12*p12_b[1]+p12_b[2]
+
+p13 = c(0,trans_inter_13)
+p13_b = back_mat%*%p13
+med13_b=back_mat%*%med13
+back_slope_13=(med13_b-p13_b)[2]/(med13_b-p13_b)[1]
+back_inter_13=-back_slope_13*p13_b[1]+p13_b[2]
+
+p23 = c(0,trans_inter_23)
+p23_b = back_mat%*%p23
+med23_b=back_mat%*%med23
+back_slope_23=(med23_b-p23_b)[2]/(med23_b-p23_b)[1]
+back_inter_23=-back_slope_23*p23_b[1]+p23_b[2]
+
+
+
+X_trans=X_trans%>%as.data.frame()
+X_trans=cbind(X_trans,class=c(rep("class1",20),rep("class2",20),rep("class3",20)))
+colnames(X_trans)=c("x1","x2","class")
+
+##visualize the point before and after transformation
+X_trans=X_trans%>%mutate(transformation="TRUE")%>%mutate(x1=as.numeric(x1),x2=as.numeric(x2))
+X_mat = X_mat%>%mutate(transformation="FALSE")
+
+
+ggplot(rbind(X_trans,X_mat), aes(x=x1, y=x2)) + geom_point(aes(color=class,shape=transformation))+
+  theme(#axis.title.x=element_blank(),
+       axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+         axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +  geom_point(aes(x=med12[1], y=med12[2]), colour="black",shape=23) +geom_point(aes(x=med13[1], y=med13[2]), colour="black",shape=23)+geom_point(aes(x=med23[1], y=med23[2]), colour="black",shape=23)+ scale_shape_manual(values=c("TRUE"=8,"FALSE"=21))+geom_abline(
+  slope=slope_12,
+  intercept=inter_12,
+  color = "red"
+) + geom_abline(
+  slope=slope_13,
+  intercept=inter_13,
+  color = "red"
+)+ geom_abline(
+  slope=slope_23,
+  intercept=inter_23,
+  color = "red"
+)+ geom_abline(
+  slope=trans_slope_12,
+  intercept=trans_inter_12,
+  color = "blue"
+) + geom_abline(
+  slope=trans_slope_13,
+  intercept=trans_inter_13,
+  color = "blue"
+)+ geom_abline(
+  slope=trans_slope_23,
+  intercept=trans_inter_23,
+  color = "blue"
+)+ geom_abline(
+  slope=back_slope_12,
+  intercept=back_inter_12,
+  linetype = "dashed"
+) + geom_abline(
+  slope=back_slope_13,
+  intercept=back_inter_13,
+ linetype = "dashed"
+) + geom_abline(
+  slope=back_slope_23,
+  intercept=back_inter_23,
+  linetype = "dashed"
+)
+
+
+  
 
 ```
 
+
+The blue line is the boundary for sphering data and the black dashed line is the boundary for the data that is transformed back after sphering. Comparing with the original boundary drawn by standard LDA method, they are exactly the same.
